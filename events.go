@@ -6,10 +6,28 @@ import (
 	"sync"
 )
 
+// default
+var (
+	defaultEventManager = New()
+	Watch               = defaultEventManager.Watch
+	WatchNum            = defaultEventManager.WatchNum
+	WatchOnce           = defaultEventManager.WatchOnce
+	WatchAsync          = defaultEventManager.WatchAsync
+	WatchNumAsync       = defaultEventManager.WatchNumAsync
+	WatchOnceAsync      = defaultEventManager.WatchOnceAsync
+	HasEvent            = defaultEventManager.HasEvent
+	Events              = defaultEventManager.Events
+	UnWatch             = defaultEventManager.UnWatch
+	UnWatchEvent        = defaultEventManager.UnWatchEvent
+	Clear               = defaultEventManager.Clear
+	Trigger             = defaultEventManager.Trigger
+	Wait                = defaultEventManager.Wait
+)
+
 type EventManager struct {
 	eventsHandlers map[string][]*Handler
-	lock           sync.Mutex
-	wg             sync.WaitGroup
+	sync.Mutex
+	wg sync.WaitGroup
 }
 
 type Handler struct {
@@ -27,8 +45,8 @@ func New() *EventManager {
 }
 
 func (e *EventManager) watchImpl(event string, fn interface{}, handler *Handler) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	if !(reflect.TypeOf(fn).Kind() == reflect.Func) {
 		return fmt.Errorf("not function:%s", reflect.TypeOf(fn).Kind())
 	}
@@ -64,15 +82,15 @@ func (e *EventManager) WatchOnceAsync(event string, fn interface{}) error {
 }
 
 func (e *EventManager) HasEvent(event string) bool {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	_, ok := e.eventsHandlers[event]
 	return ok
 }
 
 func (e *EventManager) Events() []string {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	events := make([]string, 0)
 	for event := range e.eventsHandlers {
 		events = append(events, event)
@@ -81,8 +99,8 @@ func (e *EventManager) Events() []string {
 }
 
 func (e *EventManager) UnWatch(event string, fn interface{}) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	if _, ok := e.eventsHandlers[event]; ok && len(e.eventsHandlers[event]) > 0 {
 		e.remove(event, reflect.ValueOf(fn))
 		return nil
@@ -91,8 +109,8 @@ func (e *EventManager) UnWatch(event string, fn interface{}) error {
 }
 
 func (e *EventManager) UnWatchEvent(event string) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	if _, ok := e.eventsHandlers[event]; !ok {
 		return fmt.Errorf("event not exist:%s", event)
 	}
@@ -101,14 +119,14 @@ func (e *EventManager) UnWatchEvent(event string) error {
 }
 
 func (e *EventManager) Clear() {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	e.eventsHandlers = make(map[string][]*Handler)
 }
 
 func (e *EventManager) Trigger(event string, args ...interface{}) {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+	e.Lock()
+	defer e.Unlock()
 	if _, ok := e.eventsHandlers[event]; ok {
 		for _, handler := range e.eventsHandlers[event] {
 			if handler.num > 0 {
@@ -154,67 +172,12 @@ func (e *EventManager) remove(event string, fn interface{}) {
 				delete(e.eventsHandlers, event)
 			} else {
 				e.eventsHandlers[event] = append(e.eventsHandlers[event][:i], e.eventsHandlers[event][i+1:]...)
-				e.eventsHandlers[event] = e.eventsHandlers[event][:l-1]
 			}
+			break
 		}
 	}
 }
 
 func (e *EventManager) Wait() {
 	e.wg.Wait()
-}
-
-// default
-var defaultEventManager = New()
-
-func Watch(event string, fn interface{}) error {
-	return defaultEventManager.Watch(event, fn)
-}
-
-func WatchNum(event string, fn interface{}, num int) error {
-	return defaultEventManager.WatchNum(event, fn, num)
-}
-
-func WatchOnce(event string, fn interface{}) error {
-	return defaultEventManager.WatchOnce(event, fn)
-}
-
-func WatchAsync(event string, fn interface{}) error {
-	return defaultEventManager.WatchAsync(event, fn)
-}
-
-func WatchNumAsync(event string, fn interface{}, num int) error {
-	return defaultEventManager.WatchNumAsync(event, fn, num)
-}
-
-func WatchOnceAsync(event string, fn interface{}) error {
-	return defaultEventManager.WatchOnceAsync(event, fn)
-}
-
-func HasEvent(event string) bool {
-	return defaultEventManager.HasEvent(event)
-}
-
-func Events() []string {
-	return defaultEventManager.Events()
-}
-
-func UnWatch(event string, handler interface{}) error {
-	return defaultEventManager.UnWatch(event, handler)
-}
-
-func UnWatchEvent(event string) error {
-	return defaultEventManager.UnWatchEvent(event)
-}
-
-func Clear() {
-	defaultEventManager.Clear()
-}
-
-func Trigger(event string, args ...interface{}) {
-	defaultEventManager.Trigger(event, args...)
-}
-
-func Wait() {
-	defaultEventManager.Wait()
 }
